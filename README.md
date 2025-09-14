@@ -1,2 +1,1 @@
-# Projeto-PIB
-Projeto da turma de aplicação do Econdata
+Projeto de capacitação para entrar na turma de aplicação do Econdata Analyitcs em 2025.1
