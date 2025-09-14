@@ -1,0 +1,669 @@
+---
+title: "Projeto PIB"
+author: "Rafael Emerick e Hugo Gravatá"
+date: "2025-02-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Bibliotecas, diretório e abrindo arquivos
+
+```{r }
+# Biblioteca
+library(tidyverse)
+library(geobr)
+library(descr)
+options(scipen = 999) #tirando notação cientifica
+
+# Mudando diretório
+getwd()
+setwd("C:\\Users\\aemer\\OneDrive\\Documentos\\Faculdade\\Econdata Projetos\\Projeto PIB")
+
+# Leitura de dados
+PIB_Municipio = read.csv("base_projeto_pib_municipio.csv")
+str(PIB_Municipio)
+
+PIB_UF = read.csv("base_projeto_pib_uf.csv")
+str(PIB_UF)
+```
+
+### Objetivo do PIB
+#### 1)
+
+
+```{r }
+### 1)
+
+# Filtrar dados para apenas ano inicial e final
+PibDelta = PIB_UF %>%
+  filter(ano %in% c(2002, 2020))
+
+# Filtrar dados de PIB e VA
+PibImpacto = PibDelta %>%
+  select(ano, id_uf, sigla_uf, pib, impostos_liquidos, va, va_agropecuaria, va_industria, va_servicos, va_adespss)
+
+# Calcular impacto das variáveis em %
+PibImpacto$PctImposto = round((PibDelta$impostos_liquidos / PibDelta$pib) * 100, 2)
+PibImpacto$PctAgroPecuaria = round((PibDelta$va_agropecuaria / PibDelta$pib) * 100, 2)
+PibImpacto$PctIndustria = round((PibDelta$va_industria / PibDelta$pib) * 100, 2 )
+PibImpacto$PctServicos = round((PibDelta$va_servicos / PibDelta$pib) * 100, 2)
+PibImpacto$PctAdespss = round((PibDelta$va_adespss / PibDelta$pib) * 100, 2)
+
+# Filtrar apenas as %
+PibImpacto = PibImpacto %>% 
+  select(ano, sigla_uf, PctAgroPecuaria, PctImposto, PctIndustria, PctServicos, PctAdespss)
+
+
+# Separar os anos para melhor visualização
+PibImpacto2002 = PibImpacto %>%
+  filter(ano == 2002)
+
+PibImpacto2020 = PibImpacto %>%
+  filter(ano == 2020)
+
+## Plot
+
+# 2002
+# Criar um mapeamento de estados para regiões
+regioes = data.frame(
+  sigla_uf = c("RO", "AC", "AM", "RR", "PA", "AP", "TO",
+               "MA", "PI", "CE", "RN", "PB", "PE", "AL", "SE", "BA",
+               "MG", "ES", "RJ", "SP",
+               "PR", "SC", "RS",
+               "MS", "MT", "GO", "DF"),
+  regiao = c(rep("Norte", 7), rep("Nordeste", 9), 
+             rep("Sudeste", 4), rep("Sul", 3), 
+             rep("Centro-Oeste", 4))
+)
+
+# Adicionar a coluna de região
+PibImpacto2002 = PibImpacto2002 %>%
+  left_join(regioes, by = "sigla_uf")
+
+# Transformar os dados para formato longo (Sem isso não empilhava os dados)
+data_long = PibImpacto2002 %>%
+  pivot_longer(cols = starts_with("Pct"), 
+               names_to = "Componente", 
+               values_to = "Percentual") %>%
+  mutate(Componente = recode(Componente, 
+                             PctAgroPecuaria = "Agropecuária",
+                             PctImposto = "Impostos",
+                             PctIndustria = "Indústria",
+                             PctServicos = "Serviços",
+                             PctAdespss = "Administração Pública"))
+
+# Criar o gráfico
+ggplot(data_long, aes(x = sigla_uf, y = Percentual, fill = Componente)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~ regiao, scales = "free_x", nrow = 2) +
+  labs(title = "Porcentagem dos Componentes do PIB por Estado 2002",
+       x = "Estado",
+       y = "Percentual (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+# 2020
+
+# Adicionar a coluna de região
+PibImpacto2020 = PibImpacto2020 %>%
+  left_join(regioes, by = "sigla_uf")
+
+# Transformar os dados para formato longo (Sem isso não empilhava os dados)
+data_long2 = PibImpacto2020 %>%
+  pivot_longer(cols = starts_with("Pct"), 
+               names_to = "Componente", 
+               values_to = "Percentual") %>%
+  mutate(Componente = recode(Componente, 
+                             PctAgroPecuaria = "Agropecuária",
+                             PctImposto = "Impostos",
+                             PctIndustria = "Indústria",
+                             PctServicos = "Serviços",
+                             PctAdespss = "Administração Pública"))
+
+# Criar o gráfico
+ggplot(data_long2, aes(x = sigla_uf, y = Percentual, fill = Componente)) +
+  geom_bar(stat = "identity", position = "stack") +
+  facet_wrap(~ regiao, scales = "free_x", nrow = 2) +
+  labs(title = "Porcentagem dos Componentes do PIB por Estado 2020",
+       x = "Estado",
+       y = "Percentual (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+```
+
+
+#### 2)
+
+
+```{r }
+### 2)
+
+## Calcular PIB total
+
+# 2002
+Pib2002 = PibDelta %>% 
+  filter(ano == 2002)
+
+Pib2002 = Pib2002 %>% 
+  mutate(PibTotal = sum(Pib2002$pib))
+
+# 2020
+Pib2020 = PibDelta %>% 
+  filter(ano == 2020)
+
+Pib2020 = Pib2020 %>%
+  mutate(PibTotal = sum(Pib2020$pib))
+
+## Calcular impacto das variáveis em %
+
+# 2002
+Pib2002$PctPIB = round((Pib2002$pib / Pib2002$PibTotal) * 100, 2)
+
+# 2020
+Pib2020$PctPIB = round((Pib2020$pib / Pib2020$PibTotal) * 100, 2)
+
+## Filtrar apenas o que interessa
+
+Pib2002 = Pib2002 %>%
+  select(ano, sigla_uf, pib, PctPIB)
+
+Pib2020 = Pib2020 %>%
+  select(ano, sigla_uf, pib, PctPIB)
+
+## Mapa de calor do Brasil
+
+# 2002
+
+# Baixar o mapa dos estados brasileiros
+MapaEstados = read_state(code_state = "all", year = 2020)
+
+# Unir os dados do PIB com o mapa
+MapaPib = MapaEstados %>%
+  left_join(Pib2002, by = c("abbrev_state" = "sigla_uf"))
+
+# Criar o mapa de calor
+ggplot(MapaPib) +
+  geom_sf(aes(fill = PctPIB), color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "% PIB") +
+  theme_minimal() +
+  labs(title = "Distribuição do PIB por Estado (2002)",
+       subtitle = "Contribuição percentual de cada estado para o PIB total do Brasil",
+       caption = "Fonte: Dados fornecidos pelo usuário")
+
+# 2020
+
+# Unir os dados do PIB com o mapa
+MapaPib2 = MapaEstados %>%
+  left_join(Pib2020, by = c("abbrev_state" = "sigla_uf"))
+
+# Criar o mapa de calor
+ggplot(MapaPib2) +
+  geom_sf(aes(fill = PctPIB), color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", name = "% PIB") +
+  theme_minimal() +
+  labs(title = "Distribuição do PIB por Estado (2020)",
+       subtitle = "Contribuição percentual de cada estado para o PIB total do Brasil",
+       caption = "Fonte: Dados fornecidos pelo usuário")
+```
+
+
+#### 3)
+
+
+```{r }
+### 3)
+
+# Filtrar dados apenas para comparação entre PIB e imposto
+
+PibImposto = PIB_UF %>%
+  select(ano, id_uf, sigla_uf, pib, impostos_liquidos, va)
+
+# Analisar diferença de aumento no Va com o do Imposto
+
+PibImposto$DiferençaImpostoVa = PibImposto$va - PibImposto$impostos_liquidos
+
+# Contribuição para o Pib em % de imposto e Va
+PibImposto$PctImposto = round((PibImposto$impostos_liquidos / PibImposto$pib) * 100, 2)
+PibImposto$PctVa = round((PibImposto$va / PibImposto$pib) * 100, 2)
+
+## Plot
+
+# Adicionar a coluna de região
+PibImposto = PibImposto %>%
+  left_join(regioes, by = "sigla_uf")
+
+# Criar o gráfico da evolução da porcentagem de impostos por estado e região
+ggplot(PibImposto, aes(x = ano, y = PctImposto, color = sigla_uf, group = sigla_uf)) +
+  geom_line(size = 1) +
+  facet_wrap(~ regiao, scales = "free_y") +
+  theme_minimal() +
+  labs(title = "Evolução da Porcentagem de Impostos no PIB por Estado",
+       subtitle = "Analisando possíveis impactos na dinâmica do PIB",
+       x = "Ano",
+       y = "% de Impostos no PIB",
+       color = "Estado")
+```
+
+
+### Aprofundamento da análise
+#### 1)
+
+
+```{r }
+### 1)
+
+# Determinar o setor dominante em cada estado em 2002
+SetorDominante = PibImpacto2002 %>%
+  pivot_longer(cols = starts_with("Pct"), 
+               names_to = "Setor", 
+               values_to = "Percentual") %>%
+  group_by(sigla_uf) %>%
+  filter(Percentual == max(Percentual)) %>%
+  ungroup() %>%
+  mutate(Setor = recode(Setor,
+                        PctAgroPecuaria = "Agropecuária",
+                        PctImposto = "Impostos",
+                        PctIndustria = "Indústria",
+                        PctServicos = "Serviços",
+                        PctAdespss = "Administração Pública"))
+
+# Unir com os dados de geolocalização dos estados
+MapaSetorDominante = MapaEstados %>%
+  left_join(SetorDominante, by = c("abbrev_state" = "sigla_uf"))
+
+# Criar o mapa
+ggplot(MapaSetorDominante) +
+  geom_sf(aes(fill = Setor), color = "white") +
+  scale_fill_brewer(palette = "Set2", name = "Setor Dominante") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),      # Remove as linhas de grid
+    axis.text = element_blank(),       # Remove os textos dos eixos
+  ) +
+  labs(title = "Setor Econômico Dominante por Estado (2002)",
+       subtitle = "Análise baseada na maior contribuição ao PIB de cada estado",
+       caption = "Fonte: Dados disponibilizados pelo governo")
+
+
+
+# Determinar o setor dominante em cada estado em 2020
+SetorDominante = PibImpacto2020 %>%
+  pivot_longer(cols = starts_with("Pct"), 
+               names_to = "Setor", 
+               values_to = "Percentual") %>%
+  group_by(sigla_uf) %>%
+  filter(Percentual == max(Percentual)) %>%
+  ungroup() %>%
+  mutate(Setor = recode(Setor,
+                        PctAgroPecuaria = "Agropecuária",
+                        PctImposto = "Impostos",
+                        PctIndustria = "Indústria",
+                        PctServicos = "Serviços",
+                        PctAdespss = "Administração Pública"))
+
+# Unir com os dados de geolocalização dos estados
+MapaSetorDominante = MapaEstados %>%
+  left_join(SetorDominante, by = c("abbrev_state" = "sigla_uf"))
+
+# Criar o mapa
+ggplot(MapaSetorDominante) +
+  geom_sf(aes(fill = Setor), color = "white") +
+  scale_fill_brewer(palette = "Set2", name = "Setor Dominante") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),      # Remove as linhas de grid
+    axis.text = element_blank(),       # Remove os textos dos eixos
+  ) +
+  labs(title = "Setor Econômico Dominante por Estado (2020)",
+       subtitle = "Análise baseada na maior contribuição ao PIB de cada estado",
+       caption = "Fonte: Dados disponibilizados pelo governo")
+```
+
+
+#### 2)
+
+
+```{r }
+### 2)
+
+# Unir os dados do IDEB com os dados do PIB em 1 único DF
+PIB_Ideb_2005 <- PIB_UF %>%
+  filter(ano == 2005) %>%
+  select(sigla_uf, pib, ideb_ensino_publico_fundamental)
+
+PIB_Ideb_2019 <- PIB_UF %>%
+  filter(ano == 2019) %>%
+  select(sigla_uf, pib, ideb_ensino_publico_fundamental)
+
+# Inspecionar os dados
+head(PIB_Ideb_2005)
+
+head(PIB_Ideb_2019)
+
+# Gráficos de disperção por ano
+ggplot(PIB_Ideb_2005, aes(x = ideb_ensino_publico_fundamental, y = pib)) +
+  geom_point(color = "blue", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(
+    title = "Relação entre Pontuação Média no IDEB e PIB das UFs (2005)",
+    x = "Pontuação Média no IDEB",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+ggplot(PIB_Ideb_2019, aes(x = ideb_ensino_publico_fundamental, y = pib)) +
+  geom_point(color = "blue", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = "dashed") +
+  labs(
+    title = "Relação entre Pontuação Média no IDEB e PIB das UFs (2005)",
+    x = "Pontuação Média no IDEB",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+# Gráfico de Bolha por ano
+
+ggplot(PIB_Ideb_2005, aes(x = ideb_ensino_publico_fundamental, y = sigla_uf, size = pib, color = pib)) +
+  geom_point(alpha = 0.6) +
+  scale_size_continuous(name = "PIB (R$)", range = c(3, 15)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    title = "PIB das UFs em relação ao IDEB (2005)",
+    x = "Pontuação Média no IDEB",
+    y = "Unidade Federativa (UF)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+ggplot(PIB_Ideb_2019, aes(x = ideb_ensino_publico_fundamental, y = sigla_uf, size = pib, color = pib)) +
+  geom_point(alpha = 0.6) +
+  scale_size_continuous(name = "PIB (R$)", range = c(3, 15)) +
+  scale_color_gradient(low = "blue", high = "red") +
+  labs(
+    title = "PIB das UFs em relação ao IDEB (2019)",
+    x = "Pontuação Média no IDEB",
+    y = "Unidade Federativa (UF)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+```
+
+
+#### 3)
+
+
+```{r }
+### 3)
+
+## 2010
+
+# Unir os dados do PIB com os fatores do IDHM 
+PIB_IDHM <- PIB_UF %>%
+  filter(ano == 2010) %>% 
+  select(sigla_uf, pib, idhm_2010, expectativa_vida_2010, indice_gini_2010, renda_pc_2010, indice_escolaridade_2010, indice_frequencia_escolar_2010)
+
+# Inspecionar os dados combinados
+head(PIB_IDHM)
+
+# IDHM e PIB
+ggplot(PIB_IDHM, aes(x = idhm_2010, y = pib)) +
+  geom_point(color = "blue", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "red", linetype = "dashed") +
+  labs(
+    title = "Relação entre IDHM e PIB das UFs (2010)",
+    x = "Índice de Desenvolvimento Humano Municipal (IDHM)",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+# Expectativa de Vida e PIB
+ggplot(PIB_IDHM, aes(x = expectativa_vida_2010, y = pib)) +
+  geom_point(color = "green", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkgreen", linetype = "dashed") +
+  labs(
+    title = "Relação entre Expectativa de Vida e PIB das UFs (2010)",
+    x = "Expectativa de Vida (anos)",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+ 
+# Índice de Gini e PIB 
+ggplot(PIB_IDHM, aes(x = indice_gini_2010, y = pib)) +
+  geom_point(color = "purple", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkviolet", linetype = "dashed") +
+  labs(
+    title = "Relação entre Índice de Gini e PIB das UFs (2020)",
+    x = "Índice de Gini (Desigualdade)",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+# Renda Per Capita e PIB
+ggplot(PIB_IDHM, aes(x = renda_pc_2010, y = pib)) +
+  geom_point(color = "orange", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkorange", linetype = "dashed") +
+  labs(
+    title = "Relação entre Renda Per Capita e PIB das UFs (2010)",
+    x = "Renda Per Capita (R$)",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+
+# Índice de Escolaridade e PIB
+ggplot(PIB_IDHM, aes(x = indice_escolaridade_2010, y = pib)) +
+  geom_point(color = "red", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkred", linetype = "dashed") +
+  labs(
+    title = "Relação entre Índice de Escolaridade e PIB das UFs (2010)",
+    x = "Índice de Escolaridade",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+# Frequência escolar e PIB
+ggplot(PIB_IDHM, aes(x = indice_frequencia_escolar_2010, y = pib)) +
+  geom_point(color = "red", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "darkred", linetype = "dashed") +
+  labs(
+    title = "Relação entre Índice de Frequência Escolar e PIB das UFs (2010)",
+    x = "Índice de Frequência Escolar",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+
+# Transformar os dados para formato longo (long format)
+PIB_IDHM_long <- PIB_IDHM %>%
+  pivot_longer(
+    cols = c(idhm_2010, expectativa_vida_2010, indice_gini_2010, renda_pc_2010, indice_escolaridade_2010, indice_frequencia_escolar_2010),
+    names_to = "Fator",
+    values_to = "Valor"
+  )
+
+# Criar o gráfico combinado
+ggplot(PIB_IDHM_long, aes(x = Valor, y = pib)) +
+  geom_point(aes(color = Fator), size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", color = "black", linetype = "dashed") +
+  facet_wrap(~ Fator, scales = "free_x") +
+  labs(
+    title = "Relação entre PIB e Fatores do IDHM das UFs (2010)",
+    x = "Valor do Fator",
+    y = "PIB (R$)",
+    caption = "Fonte: Dados do projeto"
+  ) +
+  theme_minimal()
+```
+
+
+### Questões Extras
+#### UF escolhida: "SC"
+#### 1)
+
+
+```{r }
+### 1)
+
+## Calcular PIB total
+
+# 2002
+PibSul2002 = PibDelta %>% 
+  filter(ano == 2002)
+
+PibSul2002 = PibSul2002 %>% 
+  mutate(PibTotal = sum(PibSul2002$pib))
+
+# 2020
+PibSul2020 = PibDelta %>%
+  filter(ano == 2020)
+
+PibSul2020 = PibSul2020 %>%
+  mutate(PibTotal = sum(PibSul2020$pib))
+
+## Calcular impacto das variáveis em %
+
+# 2002
+PibSul2002$PctPIB = round((PibSul2002$pib / PibSul2002$PibTotal) * 100, 2)
+
+# 2020
+PibSul2020$PctPIB = round((PibSul2020$pib / PibSul2020$PibTotal) * 100, 2)
+
+## Filtrar apenas o que interessa
+
+PibSul2002 = PibSul2002 %>%
+  select(ano, sigla_uf, pib, va, impostos_liquidos, va_agropecuaria, va_industria, va_servicos, va_adespss, PctPIB) %>% 
+  filter(sigla_uf %in% c("RS", "SC", "PR"))
+
+PibSul2020 = PibSul2020 %>%
+  select(ano, sigla_uf, pib, va, impostos_liquidos, va_agropecuaria, va_industria, va_servicos, va_adespss, PctPIB) %>% 
+  filter(sigla_uf %in% c("RS", "SC", "PR"))
+
+## Plot
+
+#2002
+
+# Transformar os dados para o formato longo
+df_long = PibSul2002 %>%
+  select(sigla_uf, va_agropecuaria, va_industria, va_servicos, va_adespss, impostos_liquidos) %>%
+  pivot_longer(cols = -sigla_uf, names_to = "componente", values_to = "valor")
+
+# Criar o gráfico de barras empilhadas
+ggplot(df_long, aes(x = sigla_uf, y = valor, fill = componente)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Contribuição dos Componentes do PIB nos Estados do Sul (2002)",
+       x = "Estado",
+       y = "Valor (R$)",
+       fill = "Componente") +
+  theme_minimal()
+
+# 2020
+
+# Transformar os dados para o formato longo
+df_long2 = PibSul2020 %>%
+  select(sigla_uf, va_agropecuaria, va_industria, va_servicos, va_adespss, impostos_liquidos) %>%
+  pivot_longer(cols = -sigla_uf, names_to = "componente", values_to = "valor")
+
+# Criar o gráfico de barras empilhadas
+ggplot(df_long2, aes(x = sigla_uf, y = valor, fill = componente)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Contribuição dos Componentes do PIB nos Estados do Sul (2002)",
+       x = "Estado",
+       y = "Valor (R$)",
+       fill = "Componente") +
+  theme_minimal()
+```
+
+
+#### 2)
+
+
+```{r }
+### 2)
+
+# Filtrar dados para estado escolhido
+
+PibSC = PIB_UF %>% 
+  select(ano, sigla_uf, pib) %>% 
+  filter(sigla_uf == "SC")
+
+# Aumento ano a ano
+
+PibSC = PibSC %>% 
+  mutate(aumento_pib = pib - lag(pib),   # Diferença absoluta do PIB
+         aumento_percentual = (aumento_pib / lag(pib)) * 100)
+
+# Aumento médio
+
+crescimento_medio = PibSC %>%
+  group_by(sigla_uf) %>% # Sem o groupby, não preserva a UF
+  summarise(crescimento_medio = mean(aumento_percentual, na.rm = TRUE))
+
+# Aumento acumulado
+
+crescimento_acumulado = PibSC %>%
+  group_by(sigla_uf) %>%
+  summarise(crescimento_acumulado = ((last(pib) / first(pib)) - 1) * 100)
+
+# Juntar os resultados
+CrescimentoAnalise = left_join(crescimento_medio, crescimento_acumulado, by = "sigla_uf")
+
+# Visualizar resultados
+CrescimentoAnoaAno = PibSC %>% 
+  select(ano, pib, aumento_pib, aumento_percentual)
+
+CrescimentoAnoaAno
+CrescimentoAnalise
+```
+
+
+#### 3)
+
+
+```{r }
+### 3)
+
+# filtrar Uf
+
+PibMunicipioSC = PIB_Municipio %>%
+  filter(sigla_uf == "SC")
+
+# Filtrar apenas o último ano disponível
+PibMunicipioSC = PibMunicipioSC %>% 
+  filter(ano == 2020)
+
+## Criar os gráficos
+
+# PIB vs IDH
+ggplot(PibMunicipioSC, aes(x = pib, y = idhm_2010)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "PIB (R$)", y = "IDH Municipal (2010)", title = "PIB vs. IDH") +
+  theme_minimal()
+
+# Renda per capita vs Índice de Gini
+ggplot(PibMunicipioSC, aes(x = renda_pc_2010, y = indice_gini_2010)) +
+  geom_point(alpha = 0.5, color = "orange") +
+  labs(x = "Renda per capita (R$)", y = "Índice de Gini (2010)", title = "Renda per capita vs. Índice de Gini") +
+  theme_minimal()
+
+# Expectativa de Vida vs IDH
+ggplot(PibMunicipioSC, aes(x = expectativa_vida_2010, y = idhm_2010)) +
+  geom_point(alpha = 0.5, color = "green") +
+  labs(x = "Expectativa de Vida (anos)", y = "IDH Municipal (2010)", title = "Expectativa de Vida vs. IDH") +
+  theme_minimal()
+
+# Valor Adicionado da Indústria vs PIB
+ggplot(PibMunicipioSC, aes(x = va_industria, y = pib)) +
+  geom_point(alpha = 0.5, color = "red") +
+  labs(x = "Valor Adicionado da Indústria (R$)", y = "PIB (R$)", title = "Valor Adicionado da Indústria vs. PIB") +
+  theme_minimal()
+```
