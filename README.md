@@ -1,1 +1,1 @@
-Projeto de capacitação para entrar na turma de aplicação do Econdata Analyitcs em 2025.1
+Projeto de capacitação para entrar na turma de aplicação do Econdata Analytics em 2025.1
